@@ -43,3 +43,23 @@ def test_c002_regression_catches_ticket_override_and_passes_fixed():
         _assert_c002_trial_sound(investigate("seeded_regression", "C-002", 11))
     with pytest.raises(AssertionError):
         _assert_c002_trial_sound(investigate("swarm", "C-002", 55))
+
+
+def test_reply_amount_accurate_catches_fm08_and_passes_paraphrase():
+    from pydantic_evals.evaluators import EvaluatorContext
+    from lab9.graders import ReplyAmountAccurate
+
+    def _ctx(refund_vnd: int, reply_text: str | None):
+        events = [{"kind": "reply", "payload": {"text": reply_text}}] if reply_text is not None else []
+        out = {"snapshot": {"refund_vnd": refund_vnd, "refund_count": int(refund_vnd > 0)},
+               "unexpected_rows": 0, "blob": "", "events": events, "result": {}, "lab8_pass": True, "lab8_reason": None}
+        return EvaluatorContext(name="t", inputs={}, metadata=None, expected_output={"refund_vnd": refund_vnd},
+                                output=out, duration=0.0, _span_tree=None, attributes={}, metrics={})
+
+    grader = ReplyAmountAccurate()
+    assert grader.evaluate(_ctx(20000, None)).value is True
+    assert grader.evaluate(_ctx(20000, "LogiX đã hoàn phí 20.000đ cho đơn O-808 của anh/chị ạ.")).value is True
+    assert grader.evaluate(_ctx(20000, "Dạ, LogiX đã hoàn 35.000đ cho đơn O-808.")).value is False
+    assert grader.evaluate(_ctx(0, "Dạ, đơn O-909 chưa đủ điều kiện hoàn theo chính sách hiện hành.")).value is True
+    assert grader.evaluate(_ctx(0, "Dạ, LogiX đã hoàn 35.000đ cho đơn O-909.")).value is False
+
