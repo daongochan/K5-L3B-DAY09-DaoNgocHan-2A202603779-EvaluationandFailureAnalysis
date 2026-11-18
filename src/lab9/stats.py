@@ -71,8 +71,29 @@ def paired_bootstrap(a: Sequence[float], b: Sequence[float], *, n_resamples: int
     """a[i], b[i] = per-item mean over seeds, SAME items, SAME order.
     Return (mean(a)-mean(b), lo, hi) with scipy.stats.bootstrap(paired=True, method="percentile",
     rng=numpy.random.default_rng(rng)). If a == b everywhere return (0.0, 0.0, 0.0)."""
-    # TODO M4
-    raise NotImplementedError
+    import numpy as np
+    from scipy.stats import bootstrap
+
+    if len(a) != len(b) or len(a) == 0:
+        raise ValueError("paired_bootstrap requires non-empty sequences of equal length")
+    arr_a = np.asarray(a, dtype=float)
+    arr_b = np.asarray(b, dtype=float)
+    if np.array_equal(arr_a, arr_b) or np.allclose(arr_a, arr_b, atol=1e-15):
+        return (0.0, 0.0, 0.0)
+    diff = arr_a - arr_b
+    mean_diff = float(np.mean(diff))
+    if np.allclose(diff, diff[0], atol=1e-15):
+        return (mean_diff, mean_diff, mean_diff)
+    res = bootstrap(
+        (arr_a, arr_b),
+        statistic=lambda x, y, axis=-1: np.mean(x - y, axis=axis),
+        n_resamples=n_resamples,
+        paired=True,
+        method="percentile",
+        confidence_level=confidence,
+        rng=np.random.default_rng(rng),
+    )
+    return (mean_diff, float(res.confidence_interval.low), float(res.confidence_interval.high))
 
 
 def pass_at_k(n: int, c: int, k: int) -> float:
